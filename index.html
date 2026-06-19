@@ -347,7 +347,7 @@ body.dark .nota-titulo{color:#E8E0D0;}
         <button style="padding:5px 14px;font-size:12px;background:rgba(255,255,255,.1);color:white;border:none;border-radius:8px;cursor:pointer" onclick="cancelarNomeIgreja()">✕</button>
       </div>
     </div>
-    <div class="login-sub-text">Sistema de Gestão v15.0</div>
+    <div class="login-sub-text">Sistema de Gestão v12.0</div>
   </div>
 
   <!-- ETAPA 1: Tipo de acesso -->
@@ -3267,7 +3267,8 @@ let turmaEditandoFichaId = null;
 // ═══════ STORAGE ═══════
 const S={
   get:(k)=>{try{return JSON.parse(localStorage.getItem('shk_'+k)||'null');}catch(e){return null;}},
-  set:(k,v)=>{try{localStorage.setItem('shk_'+k,JSON.stringify(v));}catch(e){}}
+  set:(k,v)=>{try{localStorage.setItem('shk_'+k,JSON.stringify(v));}catch(e){}},
+  remove:(k)=>{try{localStorage.removeItem('shk_'+k);}catch(e){}}
 };
 
 
@@ -10534,8 +10535,9 @@ body.dark .gs-txt{color:#C8B090;}
 `;
 document.head.appendChild(styleEscala);
 
-	(function iniciarSistema(){
-	  aplicarTema();
+(function iniciarSistema(){
+  window.escolherTipoAcesso = escolherTipoAcesso;
+  aplicarTema();
 	  initLogoNome();
 	  initMotivos();
 	  initAconselhamento();
@@ -10655,10 +10657,10 @@ document.head.appendChild(styleEscala);
 			  const oitoHoras = 8 * 60 * 60 * 1000; // Atualiza 3x ao dia (a cada 8 horas)
 			  const tresDias = 3 * 24 * 60 * 60 * 1000; // Limpa notícias após 3 dias
 
-			  // Limpar notícias antigas (após 3 dias)
-			  if (cache && (agora - cache.timestamp > tresDias)) {
-			    S.remove('cache_noticias');
-			  }
+  // Limpar notícias antigas (após 3 dias)
+  if (cache && (agora - cache.timestamp > tresDias)) {
+    S.remove('cache_noticias');
+  }
 
 			  if (!force && cache && (agora - cache.timestamp < oitoHoras)) {
 			    displayNoticias(cache.dados);
@@ -10720,4 +10722,16 @@ document.head.appendChild(styleEscala);
 			  if(!grid) return;
 			  
 				  grid.innerHTML = noticias.map((n, idx) => `
-				    <div class="card" style="paddin
+				    <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;transition:transform 0.2s, box-shadow 0.2s;box-shadow:0 2px 12px rgba(0,0,0,.05);" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.15)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 12px rgba(0,0,0,.05)'" onclick="abrirNoticia('${n.titulo}', '${n.resumo}', '${n.fonte}', '${new Date(n.data).toLocaleDateString('pt-BR')}')">
+				      ${n.imagem ? `<img src="${n.imagem}" style="width:100%;height:160px;object-fit:cover;">` : `<div style="width:100%;height:160px;background:linear-gradient(135deg,var(--gold-pale),var(--gold-light));display:flex;align-items:center;justify-content:center;font-size:40px;">📰</div>`}
+				      <div style="padding:16px;">
+				        <div style="font-size:10px;font-weight:800;color:var(--gold);text-transform:uppercase;margin-bottom:6px;">${n.fonte} • ${new Date(n.data).toLocaleDateString('pt-BR')}</div>
+				        <h4 style="font-size:14px;font-weight:700;color:var(--dark);line-height:1.4;margin-bottom:8px;">${n.titulo}</h4>
+				        <p style="font-size:12px;color:#888;line-height:1.5;">${n.resumo}</p>
+				      </div>
+				    </div>
+				  `).join('');
+			}
+		</script>
+</body>
+</html>
