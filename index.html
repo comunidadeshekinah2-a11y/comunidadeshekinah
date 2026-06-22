@@ -5409,7 +5409,7 @@ function limparDados(){
 }
 
 // ── Sincronização com Google Sheets ──
-const GS_URL = 'https://script.google.com/macros/library/d/1eoFzPmFCK6XgYOc01GF03ajv9TGGpU86l1NGy22Png4MPJOzEx_VZPaz/53';
+const GS_URL = 'https://script.google.com/macros/s/AKfycbyM-VOoSFOyRikfRc9RWlDAalwsnXD7mmc4XAnqvl5C3R3EhZ9o6tUJ4O1skUohcDk4/exec';
 
 async function sincronizarPlanilha(){
   const btn = document.getElementById('btn-sync-sheets');
@@ -5472,10 +5472,11 @@ async function sincronizarPlanilha(){
     // 3. SEGUNDO: Enviar para a Planilha
     status.textContent = 'Atualizando planilha...';
     const postResponse = await fetch(GS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ tipo: 'todos', dados: dadosMesclados })
-    });
+  method: 'POST',
+  headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // ⬅️ trocar para text/plain
+  body: JSON.stringify({ tipo: 'todos', dados: dadosMesclados })
+});
+
 
     const postResult = await postResponse.json();
     if (postResult.error) throw new Error(postResult.error);
