@@ -408,7 +408,7 @@ body.dark .nota-titulo{color:#E8E0D0;}
 
 </div>
 <!-- ══ SETUP ADM MASTER (primeiro acesso) ══ -->
-<div id="setup-screen">
+<div id="setup-screen" style="display:none">
   <div class="setup-box">
     <div style="text-align:center;margin-bottom:20px">
       <div style="font-size:40px;margin-bottom:8px">👑</div>
@@ -5521,13 +5521,39 @@ function closeSearch(){
   const g=document.getElementById('global-search');
   if(g) g.value='';
 }
+// ── Controle de tela inicial: login x ADM Master ──
+function controlarTelaInicial() {
+  const params = new URLSearchParams(window.location.search);
+  const forcarMaster = params.has('master-1'); // se URL tiver ?master-1
 
-// ═══════ INIT ═══════
+  const login = document.getElementById('login-screen');
+  const setup = document.getElementById('setup-screen');
+
+  if (forcarMaster) {
+    // URL com ?master-1 → mostrar tela de criar ADM Master
+    if (login) login.style.display = 'none';
+    if (setup) setup.style.display = 'flex';
+    return;
+  }
+
+  // URL normal → mostrar tela de login
+  if (setup) setup.style.display = 'none';
+  if (login) login.style.display = 'flex';
+}
+
+// ─═ INIT ═══════
 initData();
+controlarTelaInicial();   // decide se mostra login ou ADM Master (?master-1)
 renderDashboard();
 renderDeptos();
-document.querySelectorAll('input[type="date"]').forEach(i=>{if(!i.value)i.value=new Date().toISOString().split('T')[0];});
-document.getElementById('topbar-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});
+document.querySelectorAll('input[type="date"]').forEach(i=>{
+  if(!i.value) i.value = new Date().toISOString().split('T')[0];
+});
+document.getElementById('topbar-date').textContent =
+  new Date().toLocaleDateString('pt-BR',{
+    weekday:'short',
+    day:'2-digit',
+    month:'short'
 
 // Verificar alertas ao carregar e mostrar badge se houver
 (function verificarAlertas(){
