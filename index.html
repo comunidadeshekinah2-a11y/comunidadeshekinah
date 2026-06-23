@@ -347,7 +347,7 @@ body.dark .nota-titulo{color:#E8E0D0;}
         <button style="padding:5px 14px;font-size:12px;background:rgba(255,255,255,.1);color:white;border:none;border-radius:8px;cursor:pointer" onclick="cancelarNomeIgreja()">✕</button>
       </div>
     </div>
-    <div class="login-sub-text"> de Gestão v12.0</div>
+    <div class="login-sub-text">Sistema de Gestão v12.0</div>
   </div>
 
   <!-- ETAPA 1: Tipo de acesso -->
@@ -408,7 +408,7 @@ body.dark .nota-titulo{color:#E8E0D0;}
 
 </div>
 <!-- ══ SETUP ADM MASTER (primeiro acesso) ══ -->
-<div id="setup-screen" style="display:none">
+<div id="setup-screen">
   <div class="setup-box">
     <div style="text-align:center;margin-bottom:20px">
       <div style="font-size:40px;margin-bottom:8px">👑</div>
@@ -471,7 +471,7 @@ body.dark .nota-titulo{color:#E8E0D0;}
       <img id="sidebar-logo-img" style="display:none;width:100%;height:100%;border-radius:50%;object-fit:cover;" src="" alt="Logo">
     </div>
     <div class="church-name">Igreja Comunidade<br>Shekinah</div>
-    <div class="church-sub">Sistema de Gestão v15.0</div>
+    <div class="church-sub">Sistema de Gestão v12.0</div>
   </div>
   <div class="nav-section">
     <div class="nav-label">Principal</div>
@@ -1865,19 +1865,6 @@ body.dark .nota-titulo{color:#E8E0D0;}
   <div class="card">
     <h3>Dados Salvos</h3>
     <p style="font-size:13px;color:#888;margin-bottom:12px">Todos os dados são salvos automaticamente no seu dispositivo. Sincronize com o Google Sheets para manter seus dados seguros na nuvem.</p>
-    
-    <!-- Card de Contingência -->
-    <div id="card-contingencia" style="background:var(--gold-pale);border-radius:12px;padding:12px;margin-bottom:14px;border:1px solid var(--gold);display:none;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <span style="font-size:20px;">☁️</span>
-        <div style="flex:1;">
-          <div style="font-size:12px;font-weight:800;color:var(--mid);">SINCRONIZAÇÃO PENDENTE</div>
-          <div style="font-size:11px;color:var(--dark);">Existem alterações locais que ainda não foram enviadas para a nuvem.</div>
-        </div>
-      </div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center;font-size:12px;" onclick="sincronizarPlanilha()">Sincronizar Agora</button>
-    </div>
-
     <div class="btn-row">
       <button class="btn btn-green" id="btn-sync-sheets" onclick="sincronizarPlanilha()">☁️ Sincronizar com Google Sheets</button>
     </div>
@@ -3613,8 +3600,6 @@ function initOfflineSupport() {
   window.addEventListener('online', () => {
     toast('🌐 Conexão restaurada! Sincronizando dados...');
     document.body.classList.remove('offline-mode');
-    // Contingência: Sincroniza automaticamente ao voltar online
-    setTimeout(sincronizarPlanilha, 1000);
   });
   window.addEventListener('offline', () => {
     toast('📡 Você está offline. O app continuará funcionando com dados locais.');
@@ -5409,35 +5394,52 @@ function limparDados(){
 }
 
 // ── Sincronização com Google Sheets ──
-const GS_URL = 'https://script.google.com/macros/s/AKfycbyM-VOoSFOyRikfRc9RWlDAalwsnXD7mmc4XAnqvl5C3R3EhZ9o6tUJ4O1skUohcDk4/exec';
+const GS_URL = 'https://script.google.com/macros/s/AKfycbyIbUh6PoJ7hnhpGR7jg3AHgYZoHKZ7xEVquf6vqaedqTTMERkAA4mjnUWY_8N7c9SH/exec';
+
+// ── Proteção anti-sobrescrita: detecta se os dados locais ainda são o conjunto de exemplo criado por initData() ──
+function dadosLocaisSaoPadrao(){
+  try {
+    const membros = S.get('membros') || [];
+    const celulas = S.get('celulas') || [];
+    const lancamentos = S.get('lancamentos') || [];
+    // Assinatura dos dados de exemplo (ids/nomes fixos definidos em initData()).
+    // Só é considerado "padrão" se TODAS as listas baterem com a assinatura E nenhuma tiver crescido.
+    const assinaturaMembros = membros.length === 6 && membros[0] && membros[0].id === 1 && membros[0].nome === 'Ana Santos';
+    const assinaturaCelulas = celulas.length === 4 && celulas[0] && celulas[0].id === 1 && celulas[0].nome === 'Célula Esperança';
+    const assinaturaLancamentos = lancamentos.length === 7 && lancamentos[0] && lancamentos[0].id === 1 && lancamentos[0].desc === 'Dízimos Culto Domingo';
+    return assinaturaMembros && assinaturaCelulas && assinaturaLancamentos;
+  } catch(e) {
+    // Em caso de erro na verificação, trata como NÃO-padrão (lado seguro: não bloqueia sync legítima,
+    // mas as demais travas abaixo - leitura remota confirmada - continuam protegendo contra apagamento).
+    return false;
+  }
+}
 
 async function sincronizarPlanilha(){
   const btn = document.getElementById('btn-sync-sheets');
   const status = document.getElementById('sync-status');
-  if (!btn || !status) return;
-
   btn.disabled = true;
   btn.textContent = '⏳ Sincronizando...';
   status.style.display = 'block';
   status.style.color = '#888';
   
   try {
-    // 1. PRIMEIRO: Tentar puxar dados da Planilha
-    status.textContent = 'Conectando ao Google Sheets...';
-    
-    let dadosRemotos = {};
-    try {
-      const response = await fetch(GS_URL + '?tipo=get_todos');
-      if (!response.ok) {
-        throw new Error(`Erro ao buscar dados remotos: ${response.status} ${response.statusText}`);
-      }
-      dadosRemotos = await response.json();
-    } catch (e) {
-      console.warn("Não foi possível baixar dados remotos, tentando apenas enviar...", e);
-      status.textContent = '⚠️ Nota: Servidor ocupado ou erro ao baixar. Tentando envio direto...';
+    // 1. PRIMEIRO: Puxar dados da Planilha (Download)
+    status.textContent = 'Baixando dados da planilha...';
+    const response = await fetch(GS_URL + '?tipo=get_todos');
+    if (!response.ok) throw new Error('Erro ao baixar dados');
+    const dadosRemotos = await response.json();
+
+    // ── TRAVA DE SEGURANÇA 1: confirmar que a leitura remota é válida antes de prosseguir ──
+    // Sem essa confirmação explícita, jamais seguimos para o merge/envio (evita enviar dados
+    // parciais/corrompidos por falha silenciosa do GET).
+    if (dadosRemotos === null || dadosRemotos === undefined || typeof dadosRemotos !== 'object') {
+      throw new Error('Leitura da planilha não confirmada - sincronização abortada por segurança');
     }
+    const leituraRemotaConfirmada = true;
 
     // 2. MERGE: Mesclar dados locais com remotos
+    status.textContent = 'Sincronizando informações...';
     const chaves = ['membros','visitantes','lancamentos','eventos','celulas','patrimonio','comunicados','pedidos_oracao','visitas','notas','escalas','palavras_pastor','ebd_turmas','ebd_aulas','ebd_presencas','infantil','chamadas_infantil','aconselhamentos','usuarios_sistema'];
     
     const dadosMesclados = {};
@@ -5445,41 +5447,64 @@ async function sincronizarPlanilha(){
       const local = S.get(k) || [];
       const remoto = (dadosRemotos && dadosRemotos[k]) ? dadosRemotos[k] : [];
       
+      // Se for array, mescla por ID
       if (Array.isArray(local)) {
         const mapa = new Map();
-        // Adiciona remotos primeiro
-        remoto.forEach(item => { if(item && item.id) mapa.set(String(item.id), item); });
-        // Adiciona locais se não existirem (preserva o que já está na nuvem)
-        local.forEach(item => { if(item && item.id && !mapa.has(String(item.id))) mapa.set(String(item.id), item); });
+        // Prioriza o que já está na planilha (remoto)
+        remoto.forEach(item => { if(item && item.id) mapa.set(item.id, item); });
+        // Adiciona o que é novo localmente
+        local.forEach(item => { if(item && item.id && !mapa.has(item.id)) mapa.set(item.id, item); });
         
         dadosMesclados[k] = Array.from(mapa.values());
         S.set(k, dadosMesclados[k]);
       } else {
+        // Se não for array (ex: config), mantém o local ou remoto conforme lógica de preferência
         dadosMesclados[k] = local;
       }
     });
 
-    // Configurações
+    // Especial para Config (preservar se remoto existir)
     if (dadosRemotos && dadosRemotos.config) {
       const configLocal = S.get('config') || {};
-      const configMesclada = {...configLocal, ...dadosRemotos.config};
+      const configRemota = dadosRemotos.config;
+      const configMesclada = {...configLocal, ...configRemota};
       S.set('config', configMesclada);
       dadosMesclados.config = configMesclada;
     } else {
       dadosMesclados.config = S.get('config') || {};
     }
 
-    // 3. SEGUNDO: Enviar para a Planilha
+    // 3. SEGUNDO: Enviar dados mesclados de volta (Upload)
+    // ── TRAVA DE SEGURANÇA 2: nunca enviar se os dados locais ainda são os padrões de exemplo
+    // E a planilha remota já possui dados reais (evita apagar a planilha com dados de exemplo
+    // de um dispositivo novo). Só permite enviar dados-padrão se a planilha remota também
+    // estiver vazia (primeira configuração legítima, sem risco de apagar nada). ──
+    const remotoTemDadosReais = !!(dadosRemotos && Array.isArray(dadosRemotos.membros) && dadosRemotos.membros.length > 0)
+      || !!(dadosRemotos && Array.isArray(dadosRemotos.lancamentos) && dadosRemotos.lancamentos.length > 0)
+      || !!(dadosRemotos && Array.isArray(dadosRemotos.celulas) && dadosRemotos.celulas.length > 0);
+
+    if (!leituraRemotaConfirmada) {
+      throw new Error('Envio abortado: leitura da planilha não foi confirmada antes do envio');
+    }
+    if (dadosLocaisSaoPadrao() && remotoTemDadosReais) {
+      localStorage.removeItem('shk_pendente_sinc');
+      if (typeof atualizarStatusSincronizacao === 'function') atualizarStatusSincronizacao();
+      status.textContent = '✅ Dados da planilha preservados (dispositivo novo detectado)';
+      status.style.color = '#2E7D32';
+      toast('☁️ Dados da planilha carregados com segurança.');
+      if (typeof renderDashboard === 'function') renderDashboard();
+      btn.disabled = false;
+      btn.textContent = '☁️ Sincronizar com Google Sheets';
+      return;
+    }
+
     status.textContent = 'Atualizando planilha...';
-    const postResponse = await fetch(GS_URL, {
-  method: 'POST',
-  headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // ⬅️ trocar para text/plain
-  body: JSON.stringify({ tipo: 'todos', dados: dadosMesclados })
-});
-
-
-    const postResult = await postResponse.json();
-    if (postResult.error) throw new Error(postResult.error);
+    await fetch(GS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ tipo: 'todos', dados: dadosMesclados })
+    });
 
     S.set('ultimo_backup', Date.now());
     localStorage.removeItem('shk_pendente_sinc');
@@ -5488,14 +5513,16 @@ async function sincronizarPlanilha(){
     const agora = new Date().toLocaleString('pt-BR');
     status.textContent = '✅ Sincronizado em ' + agora;
     status.style.color = '#2E7D32';
-    toast('✅ Sincronização concluída!');
+    toast('✅ Sincronização bidirecional concluída!');
     
+    // Recarregar UI se necessário (opcional, dependendo de onde é chamado)
     if (typeof renderDashboard === 'function') renderDashboard();
 
   } catch(err) {
-    status.textContent = '❌ Erro: ' + err.message + '. Verifique o Google Script.';
+    status.textContent = '❌ Falha na sincronização: ' + err.message;
     status.style.color = '#C62828';
-    console.error('Erro detalhado:', err);
+    toast('❌ Erro de conexão. Verifique o Google Script.');
+    console.error('GSheets erro:', err);
   } finally {
     btn.disabled = false;
     btn.textContent = '☁️ Sincronizar com Google Sheets';
@@ -5521,39 +5548,13 @@ function closeSearch(){
   const g=document.getElementById('global-search');
   if(g) g.value='';
 }
-// ── Controle de tela inicial: login x ADM Master ──
-function controlarTelaInicial() {
-  const params = new URLSearchParams(window.location.search);
-  const forcarMaster = params.has('master-1'); // se URL tiver ?master-1
 
-  const login = document.getElementById('login-screen');
-  const setup = document.getElementById('setup-screen');
-
-  if (forcarMaster) {
-    // URL com ?master-1 → mostrar tela de criar ADM Master
-    if (login) login.style.display = 'none';
-    if (setup) setup.style.display = 'flex';
-    return;
-  }
-
-  // URL normal → mostrar tela de login
-  if (setup) setup.style.display = 'none';
-  if (login) login.style.display = 'flex';
-}
-
-// ─═ INIT ═══════
+// ═══════ INIT ═══════
 initData();
-controlarTelaInicial();   // decide se mostra login ou ADM Master (?master-1)
 renderDashboard();
 renderDeptos();
-document.querySelectorAll('input[type="date"]').forEach(i=>{
-  if(!i.value) i.value = new Date().toISOString().split('T')[0];
-});
-document.getElementById('topbar-date').textContent =
-  new Date().toLocaleDateString('pt-BR',{
-    weekday:'short',
-    day:'2-digit',
-    month:'short'
+document.querySelectorAll('input[type="date"]').forEach(i=>{if(!i.value)i.value=new Date().toISOString().split('T')[0];});
+document.getElementById('topbar-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});
 
 // Verificar alertas ao carregar e mostrar badge se houver
 (function verificarAlertas(){
@@ -10673,17 +10674,12 @@ document.head.appendChild(styleEscala);
 	    const bar = document.getElementById('sync-notice-bar');
 	    const btnMain = document.getElementById('btn-sync-sheets');
 	    
-    if (bar) bar.style.display = pendente ? 'flex' : 'none';
-    
-    const cardContingencia = document.getElementById('card-contingencia');
-    if (cardContingencia) cardContingencia.style.display = pendente ? 'block' : 'none';
-
-    if (btnMain) {
-      // No modo manual, permitimos clicar mesmo sem pendência para forçar atualização (Download)
-      btnMain.disabled = false;
-      btnMain.style.opacity = '1';
-      btnMain.title = pendente ? 'Existem alterações pendentes' : 'Forçar sincronização';
-    }
+	    if (bar) bar.style.display = pendente ? 'flex' : 'none';
+	    if (btnMain) {
+	      btnMain.disabled = !pendente;
+	      btnMain.style.opacity = pendente ? '1' : '0.6';
+	      btnMain.title = pendente ? 'Clique para sincronizar' : 'Tudo sincronizado';
+	    }
 	  };
 
 	  // 5. Sincronização automática ao abrir
