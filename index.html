@@ -347,7 +347,7 @@ body.dark .nota-titulo{color:#E8E0D0;}
         <button style="padding:5px 14px;font-size:12px;background:rgba(255,255,255,.1);color:white;border:none;border-radius:8px;cursor:pointer" onclick="cancelarNomeIgreja()">✕</button>
       </div>
     </div>
-    <div class="login-sub-text">Sistema de Gestão v15.0</div>
+    <div class="login-sub-text">Sistema de Gestão v12.0</div>
   </div>
 
   <!-- ETAPA 1: Tipo de acesso -->
@@ -5396,99 +5396,149 @@ function limparDados(){
 // ── Sincronização com Google Sheets ──
 const GS_URL = 'https://script.google.com/macros/s/AKfycbyIbUh6PoJ7hnhpGR7jg3AHgYZoHKZ7xEVquf6vqaedqTTMERkAA4mjnUWY_8N7c9SH/exec';
 
-function dadosLocaisSaoPadrao() {
+// Flag global de segurança: só permite upload se uma leitura bem-sucedida tiver ocorrido nesta sessão
+let shk_leitura_remota_confirmada = false;
+
+// ── Proteção anti-sobrescrita: detecta se os dados locais ainda são o conjunto de exemplo criado por initData() ──
+function dadosLocaisSaoPadrao(){
   try {
-    const m = S.get('membros') || [];
-    const c = S.get('celulas') || [];
-    const l = S.get('lancamentos') || [];
-    return m.length === 6 && m[0]?.nome === 'Ana Santos' &&
-           c.length === 4 && c[0]?.nome === 'Célula Esperança' &&
-           l.length === 7 && l[0]?.desc === 'Dízimos Culto Domingo';
-  } catch(e) { return false; }
+    const membros = S.get('membros') || [];
+    const celulas = S.get('celulas') || [];
+    const lancamentos = S.get('lancamentos') || [];
+    
+    // Assinatura rigorosa dos dados de exemplo
+    const assinaturaMembros = membros.length === 6 && membros.some(m => m.nome === "Ana Santos") && membros.some(m => m.nome === "João Souza");
+    const assinaturaCelulas = celulas.length === 4 && celulas.some(c => c.nome === "Célula Esperança");
+    const assinaturaLancamentos = lancamentos.length === 7 && lancamentos.some(l => l.desc === "Dízimos Culto Domingo");
+    
+    // Se não houver dados nenhuns, também tratamos como "padrão/vazio" para evitar sobrescrever a planilha
+    if (membros.length === 0 && celulas.length === 0 && lancamentos.length === 0) return true;
+    
+    return assinaturaMembros && assinaturaCelulas && assinaturaLancamentos;
+  } catch(e) {
+    return true; // Na dúvida, bloqueia o envio (segurança máxima)
+  }
 }
 
-async function sincronizarPlanilha(forcar = false) {
-  const btn = document.getElementById('btn-sync-sheets') || {disabled:false, textContent:'☁️ Sincronizar'};
+async function sincronizarPlanilha(modoAuto = false){
+  const btn = document.getElementById('btn-sync-sheets');
+  const status = document.getElementById('sync-status');
+  if(btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando...'; }
+  if(status) { status.style.display = 'block'; status.style.color = '#888'; }
+  
   try {
-    btn.disabled = true;
-    btn.textContent = '⏳ Baixando...';
+    // 1. PRIMEIRO: Puxar dados da Planilha (Download)
+    if(status) status.textContent = 'Baixando dados da planilha...';
+    const response = await fetch(GS_URL + '?tipo=get_todos');
+    if (!response.ok) throw new Error('Erro de conexão com a planilha');
+    const dadosRemotos = await response.json();
 
-    // 1. Baixar sempre primeiro
-    const resp = await fetch(GS_URL + '?tipo=get_todos');
-    const remotos = await resp.json();
+    // Validação rigorosa do objeto recebido
+    if (!dadosRemotos || typeof dadosRemotos !== 'object' || (Object.keys(dadosRemotos).length < 3 && !dadosRemotos.config)) {
+      throw new Error('Dados recebidos da planilha são inválidos ou incompletos.');
+    }
+    
+    // Marca que a leitura foi bem sucedida nesta sessão
+    shk_leitura_remota_confirmada = true;
 
-    // 2. Merge conservador: Planilha sempre ganha (prioridade remota)
-    const chaves = ['membros','celulas','lancamentos','eventos','patrimonio','visitantes','comunicados','pedidos_oracao','visitas','notas','escalas','palavras_pastor','ebd_turmas','ebd_aulas','ebd_presencas','infantil','chamadas_infantil','aconselhamentos','usuarios_sistema'];
+    // 2. MESCLAGEM SEGURA
+    if(status) status.textContent = 'Mesclando informações...';
+    const chaves = ['membros','visitantes','lancamentos','eventos','celulas','patrimonio','comunicados','pedidos_oracao','visitas','notas','escalas','palavras_pastor','ebd_turmas','ebd_aulas','ebd_presencas','infantil','chamadas_infantil','aconselhamentos','usuarios_sistema'];
+    
+    const dadosMesclados = {};
+    const localEraPadrao = dadosLocaisSaoPadrao();
 
     chaves.forEach(k => {
       const local = S.get(k) || [];
-      const remoto = remotos[k] || [];
-      // Prioriza remoto + adiciona novos locais (por ID)
-      const mapa = new Map();
-      remoto.forEach(item => { if(item?.id) mapa.set(String(item.id), item); });
-      local.forEach(item => { 
-        if(item?.id && !mapa.has(String(item.id))) mapa.set(String(item.id), item); 
-      });
-      S.set(k, Array.from(mapa.values()));
+      const remoto = (dadosRemotos && dadosRemotos[k]) ? dadosRemotos[k] : [];
+      
+      if (Array.isArray(local)) {
+        if (localEraPadrao && remoto.length > 0) {
+          // Se o local era padrão (exemplo) e tem algo na planilha, a planilha SUBSTITUI o local totalmente
+          dadosMesclados[k] = remoto;
+        } else {
+          // Caso contrário, faz a mesclagem protegendo a planilha (Remote Wins)
+          const mapa = new Map();
+          remoto.forEach(item => { if(item && item.id) mapa.set(String(item.id), item); });
+          local.forEach(item => { 
+            if(item && item.id && !mapa.has(String(item.id))) mapa.set(String(item.id), item); 
+          });
+          dadosMesclados[k] = Array.from(mapa.values());
+        }
+        // Atualiza localmente SEM disparar o aviso de "pendente" (usamos flag interna ou verificamos se mudou)
+        const oldVal = localStorage.getItem('shk_'+k);
+        const newVal = JSON.stringify(dadosMesclados[k]);
+        if (oldVal !== newVal) {
+          localStorage.setItem('shk_'+k, newVal);
+        }
+      } else {
+        dadosMesclados[k] = local;
+      }
     });
 
-    if (remotos.config) S.set('config', {...(S.get('config')||{}), ...remotos.config});
-
-    // 3. Só envia se NÃO for dados de exemplo em dispositivo novo
-    if (!dadosLocaisSaoPadrao() || !remotos.membros?.length) {
-      btn.textContent = '⏳ Enviando...';
-      await fetch(GS_URL, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({tipo: 'todos', dados: {
-          membros: S.get('membros'),
-          celulas: S.get('celulas'),
-          // ... inclua todas as chaves principais ...
-          lancamentos: S.get('lancamentos'),
-          config: S.get('config')
-        }})
-      });
+    // Configurações
+    if (dadosRemotos && dadosRemotos.config) {
+      const configLocal = S.get('config') || {};
+      const configMesclada = {...configLocal, ...dadosRemotos.config};
+      localStorage.setItem('shk_config', JSON.stringify(configMesclada));
+      dadosMesclados.config = configMesclada;
     }
 
-    toast('✅ Sincronizado com sucesso!');
-    localStorage.setItem('shk_pendente_sinc', 'false');
+    // 3. DECISÃO DE ENVIO (Upload)
+    // Se for modo automático (ao abrir), APENAS baixa os dados. Nunca envia.
+    if (modoAuto) {
+      localStorage.removeItem('shk_pendente_sinc');
+      if (typeof atualizarStatusSincronizacao === 'function') atualizarStatusSincronizacao();
+      if(status) status.textContent = '✅ Sincronização de entrada concluída.';
+      if (typeof renderDashboard === 'function') renderDashboard();
+      if (typeof renderDashboardDual === 'function') renderDashboardDual();
+      return;
+    }
 
-  } catch(e) {
-    console.error(e);
-    toast('⚠️ Erro na sincronização. Usando dados locais.');
+    // Trava de segurança final para o comando de atualização (POST)
+    if (!shk_leitura_remota_confirmada) {
+      throw new Error('Envio bloqueado: A leitura da planilha falhou ou não foi concluída.');
+    }
+
+    if (dadosLocaisSaoPadrao()) {
+      // Se após a mesclagem os dados ainda forem os de exemplo, significa que a planilha também está vazia
+      // ou a mesclagem falhou. Por segurança, não enviamos nada para não "sujar" a planilha com exemplos.
+      status.textContent = '✅ Planilha preservada (nenhuma alteração real detectada)';
+      localStorage.removeItem('shk_pendente_sinc');
+      if (typeof atualizarStatusSincronizacao === 'function') atualizarStatusSincronizacao();
+      return;
+    }
+
+    // Se chegou aqui, é um comando MANUAL e temos certeza de que lemos a planilha antes.
+    if(status) status.textContent = 'Enviando atualizações para a nuvem...';
+    await fetch(GS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ tipo: 'todos', dados: dadosMesclados })
+    });
+
+    localStorage.setItem('shk_ultimo_backup', Date.now());
+    localStorage.removeItem('shk_pendente_sinc');
+    if (typeof atualizarStatusSincronizacao === 'function') atualizarStatusSincronizacao();
+    
+    const agora = new Date().toLocaleString('pt-BR');
+    if(status) { status.textContent = '✅ Sincronizado com sucesso em ' + agora; status.style.color = '#2E7D32'; }
+    toast('✅ Sincronização concluída com sucesso!');
+    if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderDashboardDual === 'function') renderDashboardDual();
+
+  } catch(err) {
+    status.textContent = '❌ Falha na sincronização: ' + err.message;
+    status.style.color = '#C62828';
+    toast('❌ Erro de conexão. Verifique o Google Script.');
+    console.error('GSheets erro:', err);
   } finally {
     btn.disabled = false;
     btn.textContent = '☁️ Sincronizar com Google Sheets';
-    renderDashboardDual();
   }
 }
 
-// ── InitData só roda se necessário ──
-function initData() {
-  if (S.get('membros')?.length > 0) return; // já tem dados
-
-  // Dados de exemplo (mantidos)
-  S.set('membros', [ /* seus 6 membros de exemplo */ ]);
-  // ... resto dos sets ...
-}
-
-// ── Inicialização corrigida ──
-(async function iniciarSistema(){
-  // Sincroniza ANTES de qualquer initData
-  await sincronizarPlanilha();
-  
-  initData();           // só preenche exemplo se planilha estiver vazia
-  aplicarTema();
-  initLogoNome();
-  // ... resto das inits ...
-
-  const sessao = sessionStorage.getItem('shk_sessao');
-  if(sessao) {
-    // login logic...
-  } else {
-    // mostra login
-  }
-})();
 // ═══════ BUSCA GLOBAL ═══════
 function globalSearch(q){
   const res=document.getElementById('search-results');
@@ -10642,14 +10692,15 @@ document.head.appendChild(styleEscala);
 	    }
 	  };
 
-	  // 5. Sincronização automática ao abrir
-	  window.addEventListener('load', () => {
-	    setTimeout(() => {
-	      console.log('Iniciando sincronização automática...');
-	      sincronizarPlanilha();
-	      atualizarStatusSincronizacao();
-	    }, 2000);
-	  });
+		  // 5. Sincronização automática ao abrir (APENAS LEITURA)
+		  window.addEventListener('load', () => {
+		    setTimeout(() => {
+		      console.log('Iniciando sincronização automática (Download)...');
+		      // Passamos 'true' para indicar que é modo automático/inicial (apenas leitura)
+		      sincronizarPlanilha(true);
+		      atualizarStatusSincronizacao();
+		    }, 2000);
+		  });
 
 		  // Inicializar status
 		  setTimeout(atualizarStatusSincronizacao, 500);
