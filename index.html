@@ -5474,6 +5474,23 @@ async function sincronizarPlanilha(){
       dadosMesclados.config = S.get('config') || {};
     }
 
+    // Especial para ADM Master (registro único, não é lista): a planilha é a fonte de verdade
+    // compartilhada entre dispositivos. Se já existe um ADM Master remoto, ele tem prioridade
+    // (garante que todo dispositivo reconheça o mesmo ADM Master já criado). Se não existir
+    // remoto ainda, mas existir local, o local é enviado para a planilha (primeira configuração).
+    const admMasterRemoto = dadosRemotos && dadosRemotos.adm_master && dadosRemotos.adm_master.email
+      ? dadosRemotos.adm_master : null;
+    const admMasterLocal = S.get('adm_master') || null;
+    if (admMasterRemoto) {
+      S.set('adm_master', admMasterRemoto);
+      dadosMesclados.adm_master = admMasterRemoto;
+    } else if (admMasterLocal) {
+      dadosMesclados.adm_master = admMasterLocal;
+    } else {
+      dadosMesclados.adm_master = null;
+    }
+    if (typeof revalidarTelaADMMaster === 'function') revalidarTelaADMMaster();
+
     // 3. SEGUNDO: Enviar dados mesclados de volta (Upload)
     // ── TRAVA DE SEGURANÇA 2: nunca enviar se os dados locais ainda são os padrões de exemplo
     // E a planilha remota já possui dados reais (evita apagar a planilha com dados de exemplo
@@ -6751,8 +6768,32 @@ function initADMMaster(){
       S.set('adm_master', ADM_MASTER_EMBUTIDO);
       return;
     }
-    const setup=document.getElementById('setup-screen');
-    if(setup) setup.classList.add('show');
+    // A tela de criação do ADM Master só é exibida automaticamente no boot se a URL
+    // contiver o parâmetro secreto "?admmaster". Sem esse parâmetro, a tela permanece
+    // oculta enquanto aguardamos a confirmação da sincronização (evita o "flash" da tela
+    // de setup em dispositivos que já têm o ADM Master configurado na planilha, mas que
+    // ainda não baixaram esse dado por estarem em primeiro acesso local).
+    const temParametroSecreto = new URLSearchParams(window.location.search).has('admmaster');
+    if(temParametroSecreto){
+      const setup=document.getElementById('setup-screen');
+      if(setup) setup.classList.add('show');
+    }
+  }
+}
+
+// Chamada depois que a sincronização confirma (ou não) a existência do ADM Master na planilha.
+// Garante que a tela de setup só seja mostrada de fato quando tivermos certeza de que não
+// existe ADM Master em nenhum lugar (nem local, nem remoto) — eliminando o cadastro repetido
+// em dispositivos novos que acessam a mesma planilha já configurada.
+function revalidarTelaADMMaster(){
+  const setup=document.getElementById('setup-screen');
+  if(!setup) return;
+  const existeMaster = !!(S.get('adm_master') && S.get('adm_master').email);
+  if(existeMaster){
+    setup.classList.remove('show');
+  } else {
+    const temParametroSecreto = new URLSearchParams(window.location.search).has('admmaster');
+    if(temParametroSecreto) setup.classList.add('show');
   }
 }
 
