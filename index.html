@@ -324,7 +324,22 @@ body.dark .nota-titulo{color:#E8E0D0;}
 #install-banner{display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--dark);color:white;padding:12px 20px;border-radius:14px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:1500;white-space:nowrap;gap:12px;align-items:center;}
 #install-banner.show{display:flex;}
 #install-banner button{background:var(--gold);color:var(--deep);border:none;padding:6px 14px;border-radius:8px;font-weight:700;cursor:pointer;font-size:12px;}
+
+/* ── ASSISTENTE SHEKINAH (Chat Flutuante) ── */
+#assistente-fab{position:fixed;bottom:78px;right:18px;width:54px;height:54px;border-radius:50%;background:var(--gold);color:var(--deep);border:none;box-shadow:0 6px 18px rgba(0,0,0,.3);font-size:24px;cursor:pointer;z-index:1600;display:flex;align-items:center;justify-content:center;}
+#assistente-janela{display:none;position:fixed;bottom:140px;right:18px;width:min(340px,calc(100vw - 36px));height:min(480px,calc(100vh - 220px));background:white;border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.35);z-index:1600;flex-direction:column;overflow:hidden;}
+#assistente-janela.show{display:flex;}
+#assistente-header{background:var(--dark);color:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;}
+#assistente-header button{background:transparent;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;}
+#assistente-mensagens{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#FAF8F2;}
+.msg-assistente,.msg-usuario{max-width:80%;padding:9px 13px;border-radius:12px;font-size:12.5px;line-height:1.5;}
+.msg-assistente{background:white;color:var(--dark);align-self:flex-start;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.msg-usuario{background:var(--gold);color:var(--deep);align-self:flex-end;}
+#assistente-input-area{display:flex;gap:8px;padding:10px;border-top:1px solid #eee;background:white;}
+#assistente-input{flex:1;border:1px solid #ddd;border-radius:20px;padding:9px 14px;font-size:13px;outline:none;}
+#assistente-input-area button{background:var(--gold);color:var(--deep);border:none;border-radius:50%;width:38px;height:38px;font-size:16px;cursor:pointer;flex-shrink:0;}
 </style>
+<script src="https://www.youtube.com/iframe_api" async></script>
 </head>
 <body>
 
@@ -461,6 +476,20 @@ body.dark .nota-titulo{color:#E8E0D0;}
   📱 Instale o app na sua tela inicial!
   <button onclick="instalarApp()">Instalar</button>
   <button onclick="document.getElementById('install-banner').classList.remove('show')" style="background:transparent;color:rgba(255,255,255,.5);border:none;cursor:pointer;font-size:18px;padding:0 4px">✕</button>
+</div>
+
+<!-- ══ ASSISTENTE SHEKINAH (Chat Flutuante) ══ -->
+<button id="assistente-fab" onclick="toggleAssistente()" title="Assistente Shekinah">🤖</button>
+<div id="assistente-janela">
+  <div id="assistente-header">
+    <span>🤖 Assistente Shekinah</span>
+    <button onclick="toggleAssistente()">✕</button>
+  </div>
+  <div id="assistente-mensagens"></div>
+  <div id="assistente-input-area">
+    <input type="text" id="assistente-input" placeholder="Digite sua pergunta..." onkeypress="if(event.key==='Enter') enviarPerguntaAssistente()">
+    <button onclick="enviarPerguntaAssistente()">➤</button>
+  </div>
 </div>
 
 <div id="overlay" onclick="closeSidebar()"></div>
@@ -1056,7 +1085,7 @@ body.dark .nota-titulo{color:#E8E0D0;}
   
   <!-- Player em Destaque -->
   <div id="media-player-featured" class="card" style="background:linear-gradient(135deg,var(--deep),var(--mid));color:white;padding:24px;border:none;display:none">
-    <div style="display:flex;gap:20px;align-items:center">
+    <div id="media-player-audio-view" style="display:flex;gap:20px;align-items:center">
       <div id="player-cover" style="width:100px;height:100px;background:var(--gold);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:0 8px 20px rgba(0,0,0,0.3)">🎵</div>
       <div style="flex:1">
         <div id="player-category" style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--gold-light);margin-bottom:4px">PODCAST</div>
@@ -1074,11 +1103,31 @@ body.dark .nota-titulo{color:#E8E0D0;}
         </div>
       </div>
     </div>
+    <div id="media-player-youtube-view" style="display:none">
+      <div id="youtube-player-container" style="width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:#000"></div>
+      <h3 id="player-title-yt" style="color:white;margin:12px 0 2px;font-size:16px;font-family:'Cinzel',serif"></h3>
+      <p id="player-author-yt" style="font-size:12px;color:rgba(255,255,255,0.6);margin:0"></p>
+    </div>
   </div>
 
-  <div class="section-title">🔥 Recentes</div>
-  <div id="media-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:15px">
-    <!-- Lista de mídias gerada via JS -->
+  <div class="tabs">
+    <div class="tab active" id="tab-midia-recentes" onclick="switchTab('midia-recentes','midia')">🔥 Recentes</div>
+    <div class="tab" id="tab-midia-biblioteca" onclick="switchTab('midia-biblioteca','midia')">📚 Minha Biblioteca</div>
+  </div>
+
+  <div id="content-midia-recentes">
+    <div class="section-title">🔥 Recentes</div>
+    <div id="media-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:15px">
+      <!-- Lista de mídias gerada via JS -->
+    </div>
+  </div>
+
+  <div id="content-midia-biblioteca" style="display:none">
+    <div class="section-title">📚 Minha Biblioteca</div>
+    <p style="font-size:12px;color:#888;margin-bottom:12px">Todas as mídias salvas, incluindo as importadas da busca na web.</p>
+    <div id="media-library-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:15px">
+      <!-- Lista completa da biblioteca gerada via JS -->
+    </div>
   </div>
 
   <!-- Área de Busca Web (Oculta por padrão) -->
@@ -1297,6 +1346,7 @@ body.dark .nota-titulo{color:#E8E0D0;}
           <div id="qrcode-img" style="font-size:80px;margin-bottom:10px">📱</div>
           <div id="qrcode-data" style="font-family:'Courier New',monospace;font-size:12px;font-weight:700">SHK-000-000</div>
           <p style="font-size:11px;color:#888;margin-top:10px">Apresente este código na recepção infantil.</p>
+          <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:10px" onclick="imprimirEtiquetaKids()">🖨️ Imprimir Etiqueta (PDF)</button>
         </div>
       </div>
       <div class="card">
@@ -2495,8 +2545,9 @@ body.dark .nota-titulo{color:#E8E0D0;}
 <!-- Modal Nova Família -->
 <div class="modal-overlay" id="modal-familia">
   <div class="modal" style="max-width:500px">
-    <div class="modal-header"><h2>👨‍👩‍👧‍👦 Nova Família</h2><button class="modal-close" onclick="closeModal('modal-familia')">✕</button></div>
+    <div class="modal-header"><h2 id="modal-familia-titulo">👨‍👩‍👧‍👦 Nova Família</h2><button class="modal-close" onclick="closeModal('modal-familia')">✕</button></div>
     <div class="modal-body">
+      <input type="hidden" id="fam-edit-id">
       <div class="form-grid">
         <div class="form-group full"><label class="fl">Nome da Família *</label><input type="text" class="inp" id="fam-nome" placeholder="Ex: Família Silva"></div>
         <div class="form-group full"><label class="fl">Selecionar Membros *</label>
@@ -2517,7 +2568,7 @@ body.dark .nota-titulo{color:#E8E0D0;}
 <!-- Modal Nova Trilha -->
 <div class="modal-overlay" id="modal-nova-trilha">
   <div class="modal" style="max-width:500px">
-    <div class="modal-header"><h2>🚀 Nova Trilha de Crescimento</h2><button class="modal-close" onclick="closeModal('modal-nova-trilha')">✕</button></div>
+    <div class="modal-header"><h2 id="modal-trilha-titulo">🚀 Nova Trilha de Crescimento</h2><button class="modal-close" onclick="closeModal('modal-nova-trilha')">✕</button></div>
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group full"><label class="fl">Membro *</label><select class="inp" id="trilha-membro-sel"></select></div>
@@ -2528,6 +2579,10 @@ body.dark .nota-titulo{color:#E8E0D0;}
             <option>Integração</option>
             <option>Liderança</option>
           </select>
+        </div>
+        <div class="form-group full" id="trilha-passo-group" style="display:none">
+          <label class="fl">Passo Atual</label>
+          <input type="number" class="inp" id="trilha-passo" min="1">
         </div>
       </div>
       <div class="btn-row">
@@ -3260,6 +3315,8 @@ let palavraEditandoId = null;
 let turmaEBDEditandoId = null;
 let aulaEBDEditandoId = null;
 let usrEditandoId = null;
+let familiaEditandoId = null;
+let trilhaEditandoId = null;
 let catTipoAtual = 'entrada';
 let turmaEditandoFichaId = null;
 
@@ -3289,6 +3346,7 @@ function switchTab(tab,section){
   if(tab==='pedidos') renderPedidos();
   if(tab==='inf-relatorio') renderRelatorioInfantil();
   if(tab==='inf-presenca') renderHistoricoChamadas();
+  if(tab==='midia-biblioteca') renderBibliotecaMidia();
   if(section==='tesouraria'){
     if(tab==='extrato') renderExtrato();
     if(tab==='dizimos') renderDizimos();
@@ -3394,11 +3452,19 @@ function initData(){
 // ═══════ CENTRAL DE MÍDIA (ELITE) ═══════
 
 const AUDIO_PLAYER = new Audio();
+const YOUTUBE_API_KEY = 'AIzaSyDKJ9CMh6Tk8RTduc6fwDaMfKtMya5W_sI';
+let ytPlayer = null;
+let ytPlayerPronto = false;
 let midias_locais = S.get('midias_shekinah') || [
   {id:1, titulo:"Oração e Intimidade", autor:"Pr. Marcelo", cat:"Sermão", cover:"🙏", url:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"},
   {id:2, titulo:"Café com Deus", autor:"Pr. Marcelo", cat:"Podcast", cover:"🎙️", url:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"},
   {id:3, titulo:"A Força da Fé", autor:"Pra. Sandra", cat:"Sermão", cover:"🤝", url:"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"}
 ];
+
+// Callback global exigido pela API IFrame do YouTube — chamado automaticamente quando o script carrega.
+function onYouTubeIframeAPIReady() {
+  ytPlayerPronto = true;
+}
 
 function initMidia() {
   renderMidias();
@@ -3418,10 +3484,35 @@ function renderMidias() {
   const lista = S.get('midias_shekinah') || midias_locais;
   el.innerHTML = lista.map(m => `
     <div class="card" style="padding:15px;cursor:pointer;display:flex;gap:15px;align-items:center" onclick="playMidia(${m.id})">
-      <div style="width:50px;height:50px;background:var(--gold-pale);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px">${m.cover}</div>
+      ${m.artwork ? `<img src="${m.artwork}" style="width:50px;height:50px;border-radius:8px;object-fit:cover">` : `<div style="width:50px;height:50px;background:var(--gold-pale);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px">${m.cover}</div>`}
       <div style="flex:1">
         <b style="font-size:14px;display:block">${m.titulo}</b>
         <span style="font-size:11px;color:#888">${m.cat} · ${m.autor}</span>
+      </div>
+      <div style="color:var(--gold)">▶️</div>
+    </div>
+  `).join('');
+  const elBib = document.getElementById('media-library-list');
+  if(elBib && elBib.closest('#content-midia-biblioteca') && elBib.closest('#content-midia-biblioteca').style.display !== 'none'){
+    renderBibliotecaMidia();
+  }
+}
+
+function renderBibliotecaMidia() {
+  const el = document.getElementById('media-library-list');
+  if(!el) return;
+  const lista = S.get('midias_shekinah') || midias_locais;
+  if(!lista.length){
+    el.innerHTML = '<div style="padding:40px;text-align:center;grid-column:1/-1;color:#888">Sua biblioteca está vazia. Adicione manualmente ou busque na web.</div>';
+    return;
+  }
+  el.innerHTML = lista.map(m => `
+    <div class="card" style="padding:15px;cursor:pointer;display:flex;gap:15px;align-items:center" onclick="playMidia(${m.id})">
+      ${m.artwork ? `<img src="${m.artwork}" style="width:50px;height:50px;border-radius:8px;object-fit:cover">` : `<div style="width:50px;height:50px;background:var(--gold-pale);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px">${m.cover}</div>`}
+      <div style="flex:1">
+        <b style="font-size:14px;display:block">${m.titulo}</b>
+        <span style="font-size:11px;color:#888">${m.cat} · ${m.autor}</span>
+        ${m.cat==='YouTube' ? '<span style="font-size:9px;background:var(--red);color:white;padding:2px 6px;border-radius:4px;margin-top:4px;display:inline-block">▶️ YouTube</span>' : ''}
       </div>
       <div style="color:var(--gold)">▶️</div>
     </div>
@@ -3432,17 +3523,71 @@ function playMidia(id) {
   const lista = S.get('midias_shekinah') || midias_locais;
   const m = lista.find(x => x.id === id);
   if(!m) return;
-  
+
+  if(m.videoId && m.videoId.trim() !== ''){
+    playMidiaYoutube(m);
+    return;
+  }
+
+  if(!m.url || m.url.trim()===''){
+    toast('⚠️ Áudio indisponível para este conteúdo.');
+    return;
+  }
+
+  // Garante que a visualização correta (áudio) esteja visível, ocultando a do YouTube
+  document.getElementById('media-player-audio-view').style.display = 'flex';
+  document.getElementById('media-player-youtube-view').style.display = 'none';
+  if(ytPlayer && ytPlayer.pauseVideo) { try { ytPlayer.pauseVideo(); } catch(e){} }
+
   const player = document.getElementById('media-player-featured');
   player.style.display = 'block';
   document.getElementById('player-title').textContent = m.titulo;
   document.getElementById('player-author').textContent = m.autor;
   document.getElementById('player-category').textContent = m.cat;
   document.getElementById('player-cover').textContent = m.cover;
-  
+
+  AUDIO_PLAYER.onerror = () => {
+    toast('❌ Não foi possível reproduzir este áudio (link indisponível).');
+    document.getElementById('play-icon').textContent = '▶️';
+  };
+
   AUDIO_PLAYER.src = m.url;
-  AUDIO_PLAYER.play();
+  AUDIO_PLAYER.play().catch(() => {
+    toast('❌ Não foi possível reproduzir este áudio (link indisponível).');
+    document.getElementById('play-icon').textContent = '▶️';
+  });
   document.getElementById('play-icon').textContent = '⏸️';
+  toast('🎵 Reproduzindo: ' + m.titulo);
+}
+
+function playMidiaYoutube(m) {
+  // Garante que a visualização correta (YouTube) esteja visível, ocultando a de áudio
+  AUDIO_PLAYER.pause();
+  document.getElementById('media-player-audio-view').style.display = 'none';
+  document.getElementById('media-player-youtube-view').style.display = 'block';
+
+  const player = document.getElementById('media-player-featured');
+  player.style.display = 'block';
+  document.getElementById('player-title-yt').textContent = m.titulo;
+  document.getElementById('player-author-yt').textContent = m.autor;
+  player.scrollIntoView({behavior:'smooth', block:'center'});
+
+  if(!ytPlayerPronto || typeof YT === 'undefined' || !YT.Player){
+    toast('⏳ Carregando player de vídeo, tente novamente em alguns segundos...');
+    return;
+  }
+
+  if(ytPlayer){
+    ytPlayer.loadVideoById(m.videoId);
+  } else {
+    ytPlayer = new YT.Player('youtube-player-container', {
+      videoId: m.videoId,
+      playerVars: { autoplay: 1, rel: 0 },
+      events: {
+        onError: () => toast('❌ Não foi possível reproduzir este vídeo.')
+      }
+    });
+  }
   toast('🎵 Reproduzindo: ' + m.titulo);
 }
 
@@ -3473,52 +3618,72 @@ function salvarNovaMidia() {
 }
 
 async function abrirBuscaWebMidia() {
-  const termo = prompt("🔍 O que você deseja buscar na web?\n(Ex: Sermão Pastor, Podcast Cristão)");
+  const termo = prompt("🔍 O que você deseja buscar no YouTube?\n(Ex: Hinos Avivados, Pregação Pastor, Louvor e Adoração)");
   if(!termo) return;
 
   const area = document.getElementById('web-search-area');
   const resultsEl = document.getElementById('web-search-results');
   area.style.display = 'block';
-  resultsEl.innerHTML = '<div style="padding:40px;text-align:center;grid-column:1/-1;color:var(--gold)">🔎 Buscando conteúdos reais na web...</div>';
+  resultsEl.innerHTML = '<div style="padding:40px;text-align:center;grid-column:1/-1;color:var(--gold)">🔎 Buscando vídeos no YouTube...</div>';
   area.scrollIntoView({behavior:'smooth'});
 
   try {
-    // Usamos a API pública do iTunes/Podcasts que é aberta e permite busca real de áudios cristãos
-    const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(termo)}&media=podcast&limit=6`);
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${encodeURIComponent(termo)}&key=${YOUTUBE_API_KEY}`;
+    const response = await fetch(url);
     const data = await response.json();
-    
-    if(!data.results || data.results.length === 0) {
-      resultsEl.innerHTML = '<div style="padding:40px;text-align:center;grid-column:1/-1;color:#888">Nenhum conteúdo encontrado para este termo.</div>';
+
+    if(data.error){
+      const motivo = data.error.errors && data.error.errors[0] ? data.error.errors[0].reason : '';
+      if(motivo === 'quotaExceeded'){
+        resultsEl.innerHTML = '<div style="padding:40px;text-align:center;grid-column:1/-1;color:var(--red)">⚠️ Limite diário de buscas do YouTube atingido. Tente novamente mais tarde.</div>';
+      } else {
+        resultsEl.innerHTML = '<div style="padding:40px;text-align:center;grid-column:1/-1;color:var(--red)">❌ Erro ao buscar no YouTube. Verifique a configuração da chave de API.</div>';
+      }
       return;
     }
 
-    resultsEl.innerHTML = data.results.map(r => `
+    if(!data.items || data.items.length === 0) {
+      resultsEl.innerHTML = '<div style="padding:40px;text-align:center;grid-column:1/-1;color:#888">Nenhum vídeo encontrado para este termo.</div>';
+      return;
+    }
+
+    resultsEl.innerHTML = data.items.map(r => {
+      const videoId = r.id.videoId;
+      const tituloSeguro = (r.snippet.title||'').replace(/'/g,"").replace(/"/g,'');
+      const autorSeguro = (r.snippet.channelTitle||'').replace(/'/g,"").replace(/"/g,'');
+      const thumb = r.snippet.thumbnails && r.snippet.thumbnails.default ? r.snippet.thumbnails.default.url : '';
+      return `
       <div class="card" style="padding:15px;display:flex;flex-direction:column;gap:12px;border:1px solid var(--gold-pale)">
         <div style="display:flex;gap:12px;align-items:center">
-          <img src="${r.artworkUrl60}" style="width:50px;height:50px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+          <img src="${thumb}" style="width:60px;height:45px;border-radius:8px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
           <div style="flex:1">
-            <b style="font-size:13px;display:block;line-height:1.2;color:var(--dark)">${r.trackName}</b>
-            <span style="font-size:11px;color:#888">${r.artistName}</span>
+            <b style="font-size:13px;display:block;line-height:1.2;color:var(--dark)">${r.snippet.title}</b>
+            <span style="font-size:11px;color:#888">${r.snippet.channelTitle}</span>
           </div>
         </div>
         <button class="btn btn-primary" style="padding:8px;font-size:11px;justify-content:center;width:100%" 
-          onclick="importarMidiaWeb('${r.trackName.replace(/'/g,"")}', '${r.artistName.replace(/'/g,"")}', '${r.previewUrl}', '${r.artworkUrl60}')">
+          onclick="importarMidiaWeb('${tituloSeguro}', '${autorSeguro}', '${videoId}', '${thumb}')">
           📥 Importar para Biblioteca
         </button>
       </div>
-    `).join('');
+    `}).join('');
 
   } catch (err) {
     resultsEl.innerHTML = '<div style="padding:40px;text-align:center;grid-column:1/-1;color:var(--red)">❌ Erro ao conectar com a web. Verifique sua conexão.</div>';
   }
 }
 
-function importarMidiaWeb(titulo, autor, url, coverUrl) {
+function importarMidiaWeb(titulo, autor, videoId, thumbUrl) {
+  if(!videoId || videoId.trim()==='' || videoId==='undefined') {
+    toast('⚠️ Este vídeo não pôde ser importado.');
+    return;
+  }
+
   const lista = S.get('midias_shekinah') || midias_locais;
   
   // Evitar duplicados
-  if(lista.find(x => x.url === url)) {
-    toast('⚠️ Esta mídia já está na sua biblioteca!');
+  if(lista.find(x => x.videoId === videoId)) {
+    toast('⚠️ Este vídeo já está na sua biblioteca!');
     return;
   }
 
@@ -3526,15 +3691,15 @@ function importarMidiaWeb(titulo, autor, url, coverUrl) {
     id: Date.now(),
     titulo: titulo,
     autor: autor,
-    cat: "Web",
-    cover: "🌐",
-    url: url,
-    artwork: coverUrl
+    cat: "YouTube",
+    cover: "▶️",
+    videoId: videoId,
+    artwork: thumbUrl
   });
   
   S.set('midias_shekinah', lista);
   renderMidias();
-  toast('✅ Importado com sucesso!');
+  toast('✅ Importado com sucesso! Veja em "Minha Biblioteca".');
 }
 
 // ═══════ AUTENTICAÇÃO BIOMÉTRICA (WEBAUTHN) ═══════
@@ -3680,6 +3845,10 @@ function renderTrilhas() {
         ${t.status === 'Ativa' ? `
           <button class="btn btn-secondary" style="margin-top:10px;width:100%;justify-content:center;font-size:11px" onclick="avancarTrilha(${t.id})">⏭️ Avançar Passo</button>
         ` : ''}
+        <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">
+          <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px" onclick="editarTrilha(${t.id})" title="Editar">✏️</button>
+          <button class="btn btn-danger" style="padding:4px 8px;font-size:11px" onclick="deletarTrilha(${t.id})" title="Excluir">🗑️</button>
+        </div>
       </div>
     `;
   }).join('');
@@ -3689,8 +3858,25 @@ function salvarTrilha() {
   const mSel = document.getElementById('trilha-membro-sel');
   const tipo = document.getElementById('trilha-tipo').value;
   if(!mSel.value) { toast('⚠️ Selecione um membro!'); return; }
-  
+
   const trilhas = S.get('trilhas') || [];
+
+  if(trilhaEditandoId){
+    const idx = trilhas.findIndex(x => x.id === trilhaEditandoId);
+    if(idx >= 0){
+      const passoInput = parseInt(document.getElementById('trilha-passo').value) || 1;
+      trilhas[idx].tipo = tipo;
+      trilhas[idx].passo = passoInput;
+      if(trilhas[idx].passo >= trilhas[idx].total) trilhas[idx].status = 'Concluída';
+      else trilhas[idx].status = 'Ativa';
+    }
+    S.set('trilhas', trilhas);
+    closeModal('modal-nova-trilha');
+    renderTrilhas();
+    toast('✅ Trilha atualizada!');
+    return;
+  }
+
   trilhas.push({
     id: nextId(),
     membro_id: parseInt(mSel.value),
@@ -3718,6 +3904,22 @@ function avancarTrilha(id) {
   if(t.status === 'Concluída') addNotificacao("Trilha Concluída", `${t.membro_nome} concluiu a trilha de ${t.tipo}!`);
 }
 
+function editarTrilha(id) {
+  const t = (S.get('trilhas') || []).find(x => x.id === id);
+  if(!t) return;
+  trilhaEditandoId = id;
+  openModal('modal-nova-trilha');
+}
+
+function deletarTrilha(id) {
+  if(!confirm('Tem certeza que deseja excluir esta trilha?')) return;
+  let trilhas = S.get('trilhas') || [];
+  trilhas = trilhas.filter(x => x.id !== id);
+  S.set('trilhas', trilhas);
+  renderTrilhas();
+  toast('🗑️ Trilha excluída.');
+}
+
 function renderFamilia() {
   const familias = S.get('familias') || [];
   const el = document.getElementById('familia-lista');
@@ -3736,6 +3938,7 @@ function renderFamilia() {
             <p style="font-size:12px;color:#666;margin-top:2px">${f.membros.length} membros vinculados</p>
           </div>
         </div>
+        <button class="btn btn-secondary" style="padding:5px 8px;font-size:10px" onclick="editarFamilia(${f.id})">✏️</button>
         <button class="btn btn-danger" style="padding:5px 8px;font-size:10px" onclick="deletarFamilia(${f.id})">🗑️</button>
       </div>
       <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
@@ -3756,6 +3959,20 @@ function salvarFamilia() {
   if(!selecionados.length) { toast('⚠️ Selecione ao menos um membro!'); return; }
 
   const familias = S.get('familias') || [];
+  if(familiaEditandoId){
+    const idx = familias.findIndex(f => f.id === familiaEditandoId);
+    if(idx >= 0){
+      familias[idx].nome = nome;
+      familias[idx].membros = selecionados;
+      familias[idx].obs = obs;
+    }
+    S.set('familias', familias);
+    closeModal('modal-familia');
+    renderFamilia();
+    toast('✅ Família atualizada com sucesso!');
+    return;
+  }
+
   familias.push({
     id: nextId(),
     nome,
@@ -3766,6 +3983,14 @@ function salvarFamilia() {
   closeModal('modal-familia');
   renderFamilia();
   toast('✅ Família cadastrada com sucesso!');
+}
+
+function editarFamilia(id) {
+  const familias = S.get('familias') || [];
+  const f = familias.find(x => x.id === id);
+  if(!f) return;
+  familiaEditandoId = id;
+  openModal('modal-familia');
 }
 
 function deletarFamilia(id) {
@@ -4219,6 +4444,23 @@ function openModal(id, extra){
     const sel = document.getElementById('trilha-membro-sel');
     const mbs = S.get('membros') || [];
     sel.innerHTML = '<option value="">-- Selecionar --</option>' + mbs.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
+    const titulo = document.getElementById('modal-trilha-titulo');
+    const passoGroup = document.getElementById('trilha-passo-group');
+    if(trilhaEditandoId){
+      const t = (S.get('trilhas')||[]).find(x=>x.id===trilhaEditandoId);
+      if(t){
+        sel.value = t.membro_id;
+        sel.disabled = true;
+        document.getElementById('trilha-tipo').value = t.tipo;
+        document.getElementById('trilha-passo').value = t.passo;
+        if(passoGroup) passoGroup.style.display = 'block';
+        if(titulo) titulo.textContent = '✏️ Editar Trilha';
+      }
+    } else {
+      sel.disabled = false;
+      if(passoGroup) passoGroup.style.display = 'none';
+      if(titulo) titulo.textContent = '🚀 Nova Trilha de Crescimento';
+    }
   }
   if(id==='modal-familia') {
     const grid = document.getElementById('fam-membros-grid');
@@ -4228,8 +4470,23 @@ function openModal(id, extra){
         <input type="checkbox" value="${m.nome}"> ${m.nome}
       </label>
     `).join('');
-    document.getElementById('fam-nome').value = '';
-    document.getElementById('fam-obs').value = '';
+    document.getElementById('fam-edit-id').value = familiaEditandoId || '';
+    const titulo = document.getElementById('modal-familia-titulo');
+    if(familiaEditandoId){
+      const f = (S.get('familias')||[]).find(x=>x.id===familiaEditandoId);
+      if(f){
+        document.getElementById('fam-nome').value = f.nome || '';
+        document.getElementById('fam-obs').value = f.obs || '';
+        grid.querySelectorAll('input[type=checkbox]').forEach(chk => {
+          chk.checked = f.membros.includes(chk.value);
+        });
+        if(titulo) titulo.textContent = '✏️ Editar Família';
+      }
+    } else {
+      document.getElementById('fam-nome').value = '';
+      document.getElementById('fam-obs').value = '';
+      if(titulo) titulo.textContent = '👨‍👩‍👧‍👦 Nova Família';
+    }
   }
   // Motivos
   if(id==='modal-motivos-oracao') renderListaMotivos('oracao');
@@ -4293,6 +4550,8 @@ function closeModal(id){
   if(id==='modal-oracao') oracaoEditandoId=null;
   if(id==='modal-evento') eventoEditandoId=null;
   if(id==='modal-novo-usuario') usrEditandoId=null;
+  if(id==='modal-familia') familiaEditandoId=null;
+  if(id==='modal-nova-trilha') trilhaEditandoId=null;
 }
 
 // ═══════ TOAST ═══════
@@ -5066,7 +5325,7 @@ function renderVisitas(){
   const vis=S.get('visitas')||[];
   const tbody=document.getElementById('tbody-visitas');
   if(!tbody) return;
-  tbody.innerHTML=vis.map(v=>`<tr><td><b>${v.membro}</b></td><td>${fmtDate(v.data)}</td><td>${v.motivo}</td><td>${tag(v.status,'tag-green')}</td></tr>`).join('');
+  tbody.innerHTML=vis.map(v=>`<tr><td><b>${v.membro}</b></td><td>${fmtDate(v.data)}</td><td>${v.motivo}</td><td>${v.obs||''}</td><td>${tag(v.status,'tag-green')}</td><td><div style="display:flex;gap:6px"><button class="btn btn-secondary" style="padding:4px 8px;font-size:11px" onclick="editarVisitaPastoral(${v.id})" title="Editar">✏️</button><button class="btn btn-danger" style="padding:4px 8px;font-size:11px" onclick="deletarVisitaPastoral(${v.id})" title="Excluir">🗑️</button></div></td></tr>`).join('');
 }
 
 
@@ -5344,7 +5603,10 @@ function renderComunicados(){
       <p style="font-size:13px;color:#777;line-height:1.6">${c.msg}</p>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
         <span style="font-size:11px;color:#bbb">Publicado em: ${fmtDate(c.data)}</span>
-        <button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="deletarComunicado(${c.id})">🗑️</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary" style="padding:4px 10px;font-size:11px" onclick="editarComunicado(${c.id})" title="Editar">✏️</button>
+          <button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="deletarComunicado(${c.id})">🗑️</button>
+        </div>
       </div>
     </div>`).join('');
   const naoLidos=coms.filter(c=>!c.lido).length;
@@ -5391,6 +5653,77 @@ function backupData(){
 function limparDados(){
   ['membros','celulas','lancamentos','eventos','patrimonio','comunicados','visitantes','pedidos_oracao','visitas','config','nextId'].forEach(k=>localStorage.removeItem('shk_'+k));
   initData();location.reload();
+}
+
+// ── ASSISTENTE SHEKINAH (Chat) ──
+let assistenteHistorico = [];
+let assistenteAberto = false;
+
+function toggleAssistente(){
+  assistenteAberto = !assistenteAberto;
+  const janela = document.getElementById('assistente-janela');
+  janela.classList.toggle('show', assistenteAberto);
+  if(assistenteAberto && assistenteHistorico.length === 0){
+    renderMensagemAssistente('Olá! Sou o Assistente Shekinah. Posso ajudar com horários, eventos, células e outras informações da Igreja Comunidade Shekinah. Como posso ajudar?');
+  }
+}
+
+function montarContextoAssistente(){
+  const cfg = S.get('config') || {};
+  const eventos = (S.get('eventos') || []).slice(0, 8).map(e => ({titulo: e.titulo, data: e.data, local: e.local}));
+  const celulas = (S.get('celulas') || []).map(c => ({nome: c.nome, lider: c.lider, local: c.local, regiao: c.regiao}));
+  const comunicados = (S.get('comunicados') || []).slice(0, 5).map(c => ({titulo: c.titulo, mensagem: c.msg || c.mensagem}));
+
+  return {
+    nome_igreja: cfg.nome || 'Igreja Comunidade Shekinah',
+    pastor: cfg.pastor || 'Pr. Marcelo Antônio',
+    telefone: cfg.tel || '',
+    endereco: cfg.end || '',
+    proximos_eventos: eventos,
+    celulas: celulas,
+    comunicados_recentes: comunicados
+  };
+}
+
+function renderMensagemAssistente(texto){
+  assistenteHistorico.push({tipo:'assistente', texto});
+  const el = document.getElementById('assistente-mensagens');
+  el.innerHTML += `<div class="msg-assistente">${texto}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderMensagemUsuario(texto){
+  assistenteHistorico.push({tipo:'usuario', texto});
+  const el = document.getElementById('assistente-mensagens');
+  el.innerHTML += `<div class="msg-usuario">${texto}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function enviarPerguntaAssistente(){
+  const input = document.getElementById('assistente-input');
+  const pergunta = input.value.trim();
+  if(!pergunta) return;
+  input.value = '';
+  renderMensagemUsuario(pergunta);
+
+  const el = document.getElementById('assistente-mensagens');
+  el.innerHTML += `<div class="msg-assistente" id="assistente-carregando">Digitando...</div>`;
+  el.scrollTop = el.scrollHeight;
+
+  try {
+    const response = await fetch(GS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ tipo: 'assistente', pergunta: pergunta, contexto: montarContextoAssistente() })
+    });
+    const data = await response.json();
+    document.getElementById('assistente-carregando').remove();
+    renderMensagemAssistente(data.resposta || 'Não foi possível obter uma resposta agora.');
+  } catch(e) {
+    const carregando = document.getElementById('assistente-carregando');
+    if(carregando) carregando.remove();
+    renderMensagemAssistente('⚠️ Não foi possível conectar ao assistente agora. Tente novamente em instantes.');
+  }
 }
 
 // ── Sincronização com Google Sheets ──
@@ -9548,6 +9881,8 @@ function popularCheckinSelect(){
   sel.innerHTML='<option value="">Selecione a criança...</option>'+criancas.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
 }
 
+let ultimoCheckinKidsGerado = null;
+
 function gerarQRCodeCheckin(){
   const id=document.getElementById('checkin-select-crianca').value;
   if(!id) { toast('⚠️ Selecione uma criança!'); return; }
@@ -9562,8 +9897,49 @@ function gerarQRCodeCheckin(){
   const checkins = S.get('checkins_kids') || [];
   checkins.push({id: ticketId, criancaId: c.id, nome: c.nome, hora: new Date().toLocaleTimeString(), status: 'Presente'});
   S.set('checkins_kids', checkins);
+  ultimoCheckinKidsGerado = { ticketId, crianca: c };
   renderKidsStatus();
   toast('🎟️ Ticket gerado e entrada registrada!');
+}
+
+function imprimirEtiquetaKids(){
+  if(!ultimoCheckinKidsGerado){ toast('⚠️ Gere um ticket primeiro!'); return; }
+  const { ticketId, crianca: c } = ultimoCheckinKidsGerado;
+  const agora = new Date();
+  const dataHora = agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR');
+
+  const janela = window.open('', '_blank', 'width=420,height=600');
+  janela.document.write(`
+    <html>
+    <head>
+      <title>Etiqueta - ${c.nome}</title>
+      <style>
+        @page { size: 80mm 120mm; margin: 4mm; }
+        body { font-family: Arial, sans-serif; margin:0; padding:10px; color:#222; }
+        .etiqueta { border: 2px dashed #999; border-radius: 10px; padding: 14px; }
+        .codigo { font-family:'Courier New',monospace; font-size: 22px; font-weight:700; text-align:center; letter-spacing:1px; border:2px solid #C8960C; border-radius:8px; padding:8px; margin:10px 0; }
+        .nome { font-size:18px; font-weight:700; text-align:center; margin-bottom:4px; }
+        .linha { font-size:12px; margin:4px 0; }
+        .linha b { color:#555; }
+        .alerta { background:#ffecec; border:1px solid #e57373; border-radius:6px; padding:6px; font-size:11px; margin-top:8px; }
+        .rodape { text-align:center; font-size:10px; color:#888; margin-top:10px; }
+      </style>
+    </head>
+    <body onload="window.print()">
+      <div class="etiqueta">
+        <div class="nome">${c.nome}</div>
+        <div class="codigo">${ticketId}</div>
+        <div class="linha"><b>Responsável:</b> ${c.respNome || '-'}</div>
+        <div class="linha"><b>Parentesco:</b> ${c.respParentesco || '-'}</div>
+        <div class="linha"><b>Telefone:</b> ${c.respTel || '-'}</div>
+        ${c.autorizadosRetirar ? `<div class="linha"><b>Também autorizado(s):</b> ${c.autorizadosRetirar}</div>` : ''}
+        ${(c.restricoes || c.obsMedicas || c.necEspecial) ? `<div class="alerta">⚠️ ${[c.restricoes, c.obsMedicas, c.necEspecial].filter(Boolean).join(' · ')}</div>` : ''}
+        <div class="rodape">Entrada: ${dataHora}<br>Apresente este código na saída.</div>
+      </div>
+    </body>
+    </html>
+  `);
+  janela.document.close();
 }
 
 function validarSaidaKids(){
